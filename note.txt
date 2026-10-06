@@ -1,0 +1,7 @@
+Server Address: Your computer's local IP 
+
+Port: 3001
+
+URL: /api/hikvision/event
+
+Protocol: HTTP

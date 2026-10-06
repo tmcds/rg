@@ -1,0 +1,21 @@
+{
+  "name": "gym-management",
+  "version": "1.0.0",
+  "description": "Offline gym management system",
+  "main": "server.js",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "nodemon server.js",
+    "dev:frontend": "cd gym-frontend && npm start",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2"
+  }
+}
