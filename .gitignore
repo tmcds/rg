@@ -1,0 +1,52 @@
+# ── Dependencies ──
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# ── Runtime data (contains users, attendance, sessions) ──
+data.json
+data.json.bak
+*.local.json
+
+# ── Exported CSV files ──
+*.csv
+exports/
+attendance_export*.csv
+
+# ── Build output ──
+build/
+dist/
+gym-frontend/build/
+gym-frontend/dist/
+
+# ── Logs ──
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log.*
+
+# ── Environment / secrets ──
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── Editor / OS files ──
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Testing / coverage ──
+coverage/
+.nyc_output/
+
+# ── Nodemon / process files ──
+nodemon.json.bak
+*.pid
