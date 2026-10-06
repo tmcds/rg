@@ -13,7 +13,7 @@ const HIKVISION = {
     ip: '192.168.8.104',
     port: 80,
     username: 'admin',
-    password: 'passwd'
+    password: 'enterthepasswd'
 };
 
 // Session lifetime: 24 hours

@@ -1,7 +1,23 @@
-Server Address: Your computer's local IP 
+C:\GymManager
+npm install for both root and front end
+URL	Event endpoint	/api/hikvision/event
+Port	Backend port	3001
 
-Port: 3001
 
-URL: /api/hikvision/event
 
+#adding to startup
+shell:startup
+
+PORTING METHIDS 
+A- though hikvision  web dash
+Hikvision dashboard
 Protocol: HTTP
+Server Address: Your computer's local IP 
+Port: 3001
+URL: /api/hikvision/event
+rest:blank
+
+
+B Default UI
+connect url : http://192.168.8.100:3001/api/hikvision/event
+port : 3001
