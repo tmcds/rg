@@ -13,7 +13,7 @@ const HIKVISION = {
     ip: '192.168.8.104',
     port: 80,
     username: 'admin',
-    password: 'enterthepasswd'
+    password: 'passwd'
 };
 
 // Session lifetime: 24 hours
@@ -32,7 +32,6 @@ const readData = () => {
     }
     try {
         const parsed = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-        // Safety: ensure all keys exist
         return {
             users: parsed.users || [],
             attendance: parsed.attendance || [],
@@ -68,15 +67,10 @@ app.post('/api/login', (req, res) => {
     }
 
     const data = readData();
-
-    // Remove any existing session(s) for this user — enforce one session per user
     Object.keys(data.sessions).forEach(t => {
-        if (data.sessions[t].username === username) {
-            delete data.sessions[t];
-        }
+        if (data.sessions[t].username === username) delete data.sessions[t];
     });
 
-    // Create new token
     const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
     data.sessions[token] = {
         username,
@@ -113,7 +107,6 @@ const authenticate = (req, res, next) => {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Expire old sessions
     if (session.createdAt) {
         const age = Date.now() - new Date(session.createdAt).getTime();
         if (age > SESSION_TTL_MS) {
@@ -134,10 +127,19 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+// ── Helper: strip sensitive fields for non-admin ──
+const redactUser = (user, role) => {
+    if (role === 'admin') return user;
+    // Non-admin: hide phone number
+    const { phone, ...rest } = user;
+    return rest;
+};
+
 // ── Users ──
 app.get('/api/users', authenticate, (req, res) => {
     const data = readData();
-    res.json(data.users);
+    const redacted = data.users.map(u => redactUser(u, req.user.role));
+    res.json(redacted);
 });
 
 app.post('/api/users', authenticate, (req, res) => {
@@ -145,8 +147,6 @@ app.post('/api/users', authenticate, (req, res) => {
     if (!name || !phone) {
         return res.status(400).json({ error: 'Name and phone are required' });
     }
-
-    // Validate phone format: +94 XX XXX XXXX
     if (!/^\+94 \d{2} \d{3} \d{4}$/.test(phone)) {
         return res.status(400).json({ error: 'Invalid phone format. Use +94 XX XXX XXXX' });
     }
@@ -164,7 +164,7 @@ app.post('/api/users', authenticate, (req, res) => {
     data.users.push(newUser);
     writeData(data);
     console.log(`User added: ${name} (${phone})`);
-    res.json(newUser);
+    res.json(redactUser(newUser, req.user.role));
 });
 
 app.delete('/api/users/:id', authenticate, requireAdmin, (req, res) => {
@@ -186,7 +186,7 @@ app.patch('/api/users/:id/paid', authenticate, (req, res) => {
     user.paid = !user.paid;
     writeData(data);
     console.log(`User ${user.name} paid: ${user.paid}`);
-    res.json(user);
+    res.json(redactUser(user, req.user.role));
 });
 
 // ── Hikvision: Push User to Device ──
@@ -229,7 +229,7 @@ app.post('/api/hikvision/push-user/:id', authenticate, async (req, res) => {
         if (response.ok) {
             user.pushedToDevice = true;
             writeData(data);
-            res.json({ success: true, message: 'User pushed to device. Now enroll fingerprint on the device itself.' });
+            res.json({ success: true, message: 'User pushed to device.' });
         } else {
             res.status(response.status).json({ error: 'Device rejected', detail: text });
         }
@@ -239,7 +239,7 @@ app.post('/api/hikvision/push-user/:id', authenticate, async (req, res) => {
     }
 });
 
-// ── Hikvision: Event Webhook (device pushes access events here) ──
+// ── Hikvision: Event Webhook ──
 app.post('/api/hikvision/event', (req, res) => {
     console.log('=== Hikvision Event ===');
     let employeeNo = 'unknown';
@@ -292,7 +292,7 @@ app.post('/api/attendance/export', authenticate, requireAdmin, (req, res) => {
     res.send(header + rows);
 });
 
-// ── Cleanup: prune expired sessions on startup ──
+// ── Startup: prune expired sessions ──
 (function pruneSessions() {
     const data = readData();
     const now = Date.now();

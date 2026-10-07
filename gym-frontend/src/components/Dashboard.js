@@ -18,6 +18,7 @@ function Dashboard({ token, role, onLogout }) {
     const [bioStatusType, setBioStatusType] = useState('info');
 
     const headers = { 'Authorization': `Bearer ${token}` };
+    const isAdmin = role === 'admin';
 
     const fetchData = useCallback(async () => {
         try {
@@ -34,16 +35,11 @@ function Dashboard({ token, role, onLogout }) {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // ── Phone formatter ──
-    // Formats to: +94 XX XXX XXXX
+    // ── Phone formatter: +94 XX XXX XXXX ──
     const formatPhone = (value) => {
-        // Strip everything except digits
         let digits = value.replace(/\D/g, '');
-        // Remove leading 94 if user typed it (since we add +94 ourselves)
         if (digits.startsWith('94')) digits = digits.slice(2);
-        // Limit to 9 digits (Sri Lankan mobile: 7XXXXXXXX, or 11XXXXXXX)
         digits = digits.slice(0, 9);
-        // Build formatted string
         let out = '+94';
         if (digits.length > 0) out += ' ' + digits.slice(0, 2);
         if (digits.length > 2) out += ' ' + digits.slice(2, 5);
@@ -53,7 +49,6 @@ function Dashboard({ token, role, onLogout }) {
 
     const handlePhoneChange = (e) => {
         const val = e.target.value;
-        // Prevent deleting the +94 prefix
         if (val.length < 4) {
             setPhone('+94 ');
             return;
@@ -67,12 +62,10 @@ function Dashboard({ token, role, onLogout }) {
     const addUser = async (e) => {
         e.preventDefault();
         setAddError('');
-
         if (!isPhoneValid(phone)) {
             setAddError('Please enter a complete phone number: +94 XX XXX XXXX');
             return;
         }
-
         setSaving(true);
         try {
             const res = await fetch('/api/users', {
@@ -82,12 +75,9 @@ function Dashboard({ token, role, onLogout }) {
             });
             if (res.ok) {
                 const newUser = await res.json();
-                // Optimistically add to local state immediately
                 setUsers(prev => [...prev, newUser]);
-                // Reset form
                 setName(''); setPhone('+94 '); setPaid(false); setEmployeeNo('');
                 setShowAddForm(false);
-                // Background sync
                 fetchData();
             } else {
                 const d = await res.json();
@@ -99,23 +89,20 @@ function Dashboard({ token, role, onLogout }) {
         setSaving(false);
     };
 
-    // ── Toggle Paid (optimistic) ──
+    // ── Toggle Paid ──
     const togglePaid = async (id) => {
-        // Optimistic update
         setUsers(prev => prev.map(u => u.id === id ? { ...u, paid: !u.paid } : u));
         try {
             await fetch(`/api/users/${id}/paid`, { method: 'PATCH', headers });
             fetchData();
         } catch {
-            // Revert on error
             fetchData();
         }
     };
 
-    // ── Delete User (optimistic) ──
+    // ── Delete User ──
     const deleteUser = async (id, name) => {
         if (!window.confirm(`Delete "${name}" permanently?`)) return;
-        // Optimistic remove
         setUsers(prev => prev.filter(u => u.id !== id));
         try {
             await fetch(`/api/users/${id}`, { method: 'DELETE', headers });
@@ -125,7 +112,7 @@ function Dashboard({ token, role, onLogout }) {
         }
     };
 
-    // ── Push to Hikvision Device ──
+    // ── Push to Device ──
     const pushToDevice = async (user) => {
         setBioStatus('Pushing user to device...');
         setBioStatusType('info');
@@ -135,9 +122,8 @@ function Dashboard({ token, role, onLogout }) {
             });
             const d = await res.json();
             if (res.ok) {
-                setBioStatus('✅ User created on device. Now enroll the fingerprint ON THE DEVICE ITSELF using the steps below.');
+                setBioStatus('✅ User created on device. Now enroll the fingerprint ON THE DEVICE ITSELF.');
                 setBioStatusType('success');
-                // Update local state to reflect pushedToDevice
                 setUsers(prev => prev.map(u => u.id === user.id ? { ...u, pushedToDevice: true } : u));
                 setBioUser(prev => prev ? { ...prev, pushedToDevice: true } : prev);
                 fetchData();
@@ -185,7 +171,8 @@ function Dashboard({ token, role, onLogout }) {
                         <div className="label">Signed in as</div>
                         <div className="name">{role}</div>
                     </div>
-                    <button className="btn-icon" style={{ width: '100%', justifyContent: 'center', background: 'transparent', color: '#94a3b8', borderColor: '#334155' }}
+                    <button className="btn-icon"
+                        style={{ width: '100%', justifyContent: 'center', background: 'transparent', color: '#94a3b8', borderColor: '#334155' }}
                         onClick={onLogout}>
                         Sign Out
                     </button>
@@ -208,7 +195,7 @@ function Dashboard({ token, role, onLogout }) {
                                 + Add Member
                             </button>
                         )}
-                        {tab === 'attendance' && role === 'admin' && (
+                        {tab === 'attendance' && isAdmin && (
                             <button className="btn-success-custom" onClick={exportCSV}>
                                 ⬇ Export CSV
                             </button>
@@ -249,7 +236,7 @@ function Dashboard({ token, role, onLogout }) {
                                     <thead>
                                         <tr>
                                             <th>Name</th>
-                                            <th>Phone</th>
+                                            {isAdmin && <th>Phone</th>}
                                             <th>Employee ID</th>
                                             <th>Paid</th>
                                             <th>Biometric</th>
@@ -260,7 +247,11 @@ function Dashboard({ token, role, onLogout }) {
                                         {users.map(u => (
                                             <tr key={u.id}>
                                                 <td style={{ fontWeight: 600 }}>{u.name}</td>
-                                                <td style={{ color: '#64748b' }}>{u.phone}</td>
+                                                {isAdmin && (
+                                                    <td style={{ color: '#64748b' }}>
+                                                        {u.phone || <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>—</span>}
+                                                    </td>
+                                                )}
                                                 <td><span className="emp-id">{u.employeeNo}</span></td>
                                                 <td>
                                                     <label className="switch">
@@ -283,7 +274,7 @@ function Dashboard({ token, role, onLogout }) {
                                                             onClick={() => { setBioUser(u); setBioStatus(''); }}>
                                                             🔒 Register Biometric
                                                         </button>
-                                                        {role === 'admin' && (
+                                                        {isAdmin && (
                                                             <button className="btn-icon danger"
                                                                 onClick={() => deleteUser(u.id, u.name)}
                                                                 title="Delete member">
@@ -316,7 +307,7 @@ function Dashboard({ token, role, onLogout }) {
                                         <tr>
                                             <th>Name</th>
                                             <th>Employee ID</th>
-                                            <th>Date & Time</th>
+                                            <th>Date &amp; Time</th>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
